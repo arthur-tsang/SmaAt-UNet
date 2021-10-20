@@ -1,7 +1,7 @@
 from torch import nn
-from models.unet_parts import OutConv
-from models.unet_parts_depthwise_separable import DoubleConvDS, UpDS, DownDS
-from models.layers import CBAM
+from .unet_parts import OutConv
+from .unet_parts_depthwise_separable import DoubleConvDS, UpDS, DownDS
+from .layers import CBAM
 
 
 class SmaAt_UNet(nn.Module):
