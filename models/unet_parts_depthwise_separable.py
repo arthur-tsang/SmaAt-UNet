@@ -9,7 +9,7 @@ from .layers import DepthwiseSeparableConv
 class DoubleConvDS(nn.Module):
     """(convolution => [BN] => ReLU) * 2"""
 
-    def __init__(self, in_channels, out_channels, mid_channels=None, kernels_per_layer=1):
+    def __init__(self, in_channels, out_channels, mid_channels=None, kernels_per_layer=1, pdrop=0):
         super().__init__()
         if not mid_channels:
             mid_channels = out_channels
@@ -17,9 +17,11 @@ class DoubleConvDS(nn.Module):
             DepthwiseSeparableConv(in_channels, mid_channels, kernel_size=3, kernels_per_layer=kernels_per_layer, padding=1),
             nn.BatchNorm2d(mid_channels),
             nn.ReLU(inplace=True),
+            nn.Dropout2d(p=pdrop), # adding regularization
             DepthwiseSeparableConv(mid_channels, out_channels, kernel_size=3, kernels_per_layer=kernels_per_layer, padding=1),
             nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True)
+            nn.ReLU(inplace=True),
+            nn.Dropout2d(p=pdrop) # adding regularization
         )
 
     def forward(self, x):
@@ -29,11 +31,11 @@ class DoubleConvDS(nn.Module):
 class DownDS(nn.Module):
     """Downscaling with maxpool then double conv"""
 
-    def __init__(self, in_channels, out_channels, kernels_per_layer=1):
+    def __init__(self, in_channels, out_channels, kernels_per_layer=1, pdrop=0):
         super().__init__()
         self.maxpool_conv = nn.Sequential(
             nn.MaxPool2d(2),
-            DoubleConvDS(in_channels, out_channels, kernels_per_layer=kernels_per_layer)
+            DoubleConvDS(in_channels, out_channels, kernels_per_layer=kernels_per_layer, pdrop=pdrop)
         )
 
     def forward(self, x):
@@ -43,16 +45,16 @@ class DownDS(nn.Module):
 class UpDS(nn.Module):
     """Upscaling then double conv"""
 
-    def __init__(self, in_channels, out_channels, bilinear=True, kernels_per_layer=1):
+    def __init__(self, in_channels, out_channels, bilinear=True, kernels_per_layer=1, pdrop=0):
         super().__init__()
 
         # if bilinear, use the normal convolutions to reduce the number of channels
         if bilinear:
             self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-            self.conv = DoubleConvDS(in_channels, out_channels, in_channels // 2, kernels_per_layer=kernels_per_layer)
+            self.conv = DoubleConvDS(in_channels, out_channels, in_channels // 2, kernels_per_layer=kernels_per_layer, pdrop=pdrop)
         else:
             self.up = nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2)
-            self.conv = DoubleConvDS(in_channels, out_channels, kernels_per_layer=kernels_per_layer)
+            self.conv = DoubleConvDS(in_channels, out_channels, kernels_per_layer=kernels_per_layer, pdrop=pdrop)
 
     def forward(self, x1, x2):
         x1 = self.up(x1)
